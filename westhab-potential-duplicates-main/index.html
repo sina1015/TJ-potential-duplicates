@@ -1,0 +1,247 @@
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Facilio Connected Apps Quickstart</title>
+    
+    <link rel="stylesheet" href="app.css">
+
+    <!-- Facilio Connected Apps SDK-->
+    <script type="text/javascript" src="https://static.facilio.com/apps-sdk/latest/facilio_apps_sdk.min.js"></script>
+
+    <!-- import CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/element-ui/lib/theme-chalk/index.css">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    
+    
+    <!-- VueJS-->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+
+    <!-- import JavaScript -->
+    <script src="https://unpkg.com/element-ui/lib/index.js"></script>
+    <script src="//unpkg.com/element-ui/lib/umd/locale/en.js"></script>
+
+    <script type="text/javascript" src="app.js"></script>
+</head>
+<body>
+    <div id="app" style="padding: 20px;">
+        <div  class="fc-recent-wo-con">
+            <el-empty v-if="items.length === 0" class = "center height100" description="No Potential Duplicate(s)"></el-empty>
+
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div v-for="item in items" :key="item.id" class="bg-white p-2 h-120">
+                    <div class="flex justify-left items-center mb-1" style="height: 20px;">
+                        <p class="text-gray-800 font-semibold text-xs" style="height: 20px;">#{{ item.serialNumber }}</p>
+                        <div class="h-6 bg-gray-300 w-0.5 mx-2"></div>
+                        
+                        <div class="bg-blue-100 text-blue-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full dark:bg-blue-900 dark:text-blue-300" style="height: 20px;">
+                            {{ item.status }}
+                        </div>
+                    </div>
+<!--                     <p :href="item.url" target="_blank" class="text-gray-600 text-sm" style="height: 50px; letter-spacing: normal; padding-top: 10px; color: #324056; overflow: auto;">Subject: {{ item.subject }}</p> -->
+                    <a :href="item.url" target="_blank" class="text-gray-600 text-sm" style="height: 50px; letter-spacing: normal; padding-top: 10px; color: #324056; overflow: auto; display: block;">
+                        Subject: {{ item.subject }}
+                    </a>
+                    <div class="flex justify-between items-center mb-1" style="padding-top: 10px;">
+                        <p class="text-gray-600 text-xs" style="height: 28px;">Created Time: {{ item.createdTime }}</p>
+                        <!-- <a >
+                            <img width="16" height="16" src="https://img.icons8.com/fluency-systems-regular/48/external-link.png" alt="external-link"/>
+                        </a> -->
+                    </div>
+                    <hr class="my-1">
+                </div>
+            </div>
+        </div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        var app = new Vue({
+            el: '#app',
+            data () {
+                return {
+                    loading: true,
+                    items: [],
+                    siteId: null,
+                    spaceId: null,
+                    asset: null,
+                    category: null,
+                    subcategory: null,
+                    problemType: null,
+                    criteriaMap: {}
+                }
+            },
+            mounted() {
+                window.facilioApp = FacilioAppSDK.init();
+                window.facilioApp.on("app.loaded", (data) => {
+                    console.log("===>",data)
+                    this.currentUser = window.facilioApp.getCurrentUser();
+                });
+
+                window.facilioApp.on("form.siteId.changed", (siteId) => { // siteId
+                    this.siteId = siteId.value.id;
+                    this.spaceId = null;
+                    this.asset = null;
+
+                    // Clear and set new values
+                    this.criteriaMap = {
+                        siteId: siteId.value.id,
+                        spaceId: null,
+                        asset: null
+                        //category: null,
+                        //subcategory: null
+                    };
+                    this.fetchWorkorders();
+                });
+                window.facilioApp.on("form.resource.changed", (asset) => { // space_workorder
+                    console.log("asset", asset)
+                    if (asset.value && asset.value.id) {
+                        this.asset = asset.value.id;
+                        this.criteriaMap.asset = asset.value.id;
+                    } else {
+                        this.asset = null;
+                        this.criteriaMap.asset = null;
+                    }
+                    this.fetchWorkorders();
+                });
+                window.facilioApp.on("form.space_workorder.changed", (space) => { // space_workorder
+                    console.log("space", space.value.id)
+                    if (space.value && space.value.id) {
+                        this.spaceId = space.value.id;
+                        this.criteriaMap.spaceId = space.value.id;
+                        this.fetchWorkorders();
+                    }
+                });
+                window.facilioApp.on("form.asset_category_workorder.changed", (category) => { // resource
+                    console.log("category", category.value.id)
+                    if (category.value && category.value.id) {
+                        this.category = category.value.id;
+                        this.criteriaMap.category = category.value.id;
+                        this.fetchWorkorders();
+                    }
+                });
+                window.facilioApp.on("form.sub_category_workorder.changed", (subcategory) => { // resource
+                    console.log("Sub", subcategory.value.id)
+                    if (subcategory.value && subcategory.value.id) {
+                        this.subcategory = subcategory.value.id;
+                        this.criteriaMap.subcategory = subcategory.value.id;
+                        this.fetchWorkorders();
+                    }
+                });
+                window.facilioApp.on("form.problem_type_workorder.changed", (problemType) => { // resource
+                    console.log("problemType", problemType.value.id)
+                    if (problemType.value && problemType.value.id) {
+                        this.problemType = problemType.value.id;
+                        this.criteriaMap.problemType = problemType.value.id;
+                        this.fetchWorkorders();
+                    }
+                });
+            },
+            methods: {
+                async fetchWorkorders() {
+                    console.log("criteriaMap: ", this.criteriaMap)
+                    let res
+                    let urlParams = {
+                        method: 'post',
+                        data: {
+                            workflowId: 631995,
+                            paramList: [this.criteriaMap]
+                        }
+                    }
+
+                    try {
+                        const response = await window.facilioApp.request.invokeFacilioAPI('/v2/workflow/runWorkflow', urlParams)
+                        if (response.result && response.result.workflow) {
+                            res = response.result && response.result.workflow && response.result.workflow.returnValue && response.result.workflow.returnValue || [];
+                            console.log("result", res);
+                            this.items = res
+                        }
+                    } catch (error) {
+                        console.log("Error: =>", error);
+                    }
+                }
+            },
+        })
+    </script>
+    <style>
+        .fc-card-hover {
+            -webkit-text-size-adjust: 100%;
+            font-family: system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif,BlinkMacSystemFont,"Segoe UI","Helvetica Neue",Arial,"Noto Sans","Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol","Noto Color Emoji";
+            line-height: 1.5;
+            box-sizing: border-box;
+            border: 0 solid #e2e8f0;
+            cursor: pointer;
+            padding: 15px 10px 0;
+        }
+        .fc-recent-wo-con{
+            position: relative;
+        }
+        .flex-middle {
+            display: flex;
+            align-items: center;
+        }
+        .justifycontent-space {
+            justify-content: space-between;
+        }
+        .fc-border-pink {
+            width: 32px;
+            height: 1px;
+            background-color: #ff3184!important;
+            margin-top: 15px;
+            margin-bottom: 15px;
+        }
+        .el-divider--horizontal {
+            display: block;
+            height: 1px;
+            width: 100%;
+            margin: 24px 0;
+            position: relative;
+        }
+        .fc-black-12 {
+            font-size: 12px;
+            line-height: normal;
+            letter-spacing: 1px;
+            color: #324056;
+        }
+        .fc-border-pink {
+            width: 32px;
+            height: 1px;
+            background-color: #ff3184!important;
+            margin-top: 15px;
+            margin-bottom: 0;
+        }
+        .statusIcon {
+            border-radius: 4px;
+            height: 20px;
+            padding: 2px 8px;
+            width: max-content;
+            display: flex;
+            -webkit-box-align: center;
+            align-items: center;
+            cursor: pointer;
+            gap: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            line-height: 1;
+            background-color: var(--colors-backgroundAccentBlueSubtle);
+            color: var(--colors-neutralFont80);
+            border: 1px solid var(--colors-backgroundAccentBlueLight);
+        }
+
+        .verticalBar {
+            height: 1rem;
+            width: 2px;
+            background-color: #ccc;
+        }
+
+        .externalLinkIcon {
+            color: #000;
+        }
+        .redirect-icon {
+            fill: #ccc; /* Light gray color */
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+    </style>
+</body>
+</html>
